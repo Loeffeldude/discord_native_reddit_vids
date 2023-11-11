@@ -1,0 +1,8 @@
+services:
+  bot:
+    image: bot
+    build: .
+    environment:
+      - DISCORD_TOKEN
+    volumes:
+      - ./tmp:/app/tmp
