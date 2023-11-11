@@ -19,13 +19,21 @@ def download_video(reddit_url: str) -> pathlib.Path | None:
         "quiet": True,
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(reddit_url, download=False)
+        try:
+            info = ydl.extract_info(reddit_url, download=False)
 
-        # Check if the video is too big
-        if info["duration"] > MAX_DURATION:
-            return None
+            # Check if the video is too big
+            if info["duration"] > MAX_DURATION:
+                return None
 
-        ydl.download([reddit_url])
+            ydl.download([reddit_url])
+        except yt_dlp.utils.DownloadError as download_error:
+            # This is awful but I don't know how else to do it
+            # I guess its pythonic lol
+            if download_error.msg.lower() in "no media found":
+                return None
+            else:
+                raise download_error
 
     # check if the video is too big
     if out_path.stat().st_size > MAX_VIDEO_SIZE:
