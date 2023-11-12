@@ -32,6 +32,9 @@ async def on_message(message: discord.Message):
     if len(urls) == 0:
         return
 
+    # limit the number of url to 5
+    urls = urls[:5]
+
     logger.info(f"Downloading {len(urls)} videos from {message.author.name}")
 
     video_download_results = download.download_videos(urls)
