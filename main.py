@@ -5,8 +5,14 @@ import discord_native_reddit_vids.reddit as reddit
 import discord_native_reddit_vids.download as download
 import logging
 
-logger = logging.getLogger("discord_native_reddit_vids")
-logger.setLevel(logging.DEBUG)
+logger = logging.getLogger("bot")
+logger.setLevel(logging.INFO)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s]%(name)s: %(message)s",
+)
+
 dotenv.load_dotenv()
 
 intents = discord.Intents.default()
@@ -25,19 +31,27 @@ async def on_message(message: discord.Message):
 
     if len(urls) == 0:
         return
-    
-    urls_str = "\n".join(urls)
-    logger.debug(f"URLS: {urls_str}")
 
     logger.info(f"Downloading {len(urls)} videos from {message.author.name}")
 
-    video_paths = download.download_videos(urls)
+    video_download_results = download.download_videos(urls)
 
-    for video_path in video_paths:
+    logger.info(
+        f"Sending {len([res.success for res in video_download_results])} videos to {message.author.name}"
+    )
+
+    for download_result in video_download_results:
+        if download_result.success is False:
+            logger.info(f"Failed to download {download_result.url}")
+            logger.info(f"Reason: {download_result.reason}")
+            continue
         try:
-            await message.channel.send(file=discord.File(video_path))
+            logger.info(f"Sending {download_result.url}")
+            await message.channel.send(file=discord.File(download_result.path))
         finally:
-            video_path.unlink()
+            download_result.path.unlink()
+
 
 if __name__ == "__main__":
-    client.run(os.getenv("DISCORD_TOKEN"))
+    logger.info("Starting discord_native_reddit_vids")
+    client.run(os.getenv("DISCORD_TOKEN"), log_handler=None)
