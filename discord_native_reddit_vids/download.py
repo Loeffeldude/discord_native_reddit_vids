@@ -17,6 +17,16 @@ class DownloadErrorReason(enum.Enum):
     TOO_LONG = "too long"
     TOO_LARGE = "too large"
 
+    def __str__(self):
+        if self == DownloadErrorReason.NO_MEDIA:
+            return "The reddit post does not have any video media"
+        elif self == DownloadErrorReason.TOO_LONG:
+            return "The reddit video is too long"
+        elif self == DownloadErrorReason.TOO_LARGE:
+            return "The reddit video's filesize is too large"
+        else:
+            return "Unknown error"
+
 
 @dataclasses.dataclass
 class SucessDownloadResult:

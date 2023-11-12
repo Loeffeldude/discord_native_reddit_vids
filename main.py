@@ -44,10 +44,18 @@ async def on_message(message: discord.Message):
         if download_result.success is False:
             logger.info(f"Failed to download {download_result.url}")
             logger.info(f"Reason: {download_result.reason}")
+            await message.reply(
+                f"Failed to download: {download_result.reason}", mention_author=False
+            )
             continue
         try:
             logger.info(f"Sending {download_result.url}")
-            await message.channel.send(file=discord.File(download_result.path))
+            await message.reply(
+                content=download_result.url,
+                file=discord.File(download_result.path),
+                mention_author=False,
+                suppress_embeds=True,
+            )
         finally:
             download_result.path.unlink()
 
