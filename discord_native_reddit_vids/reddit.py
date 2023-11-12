@@ -4,7 +4,7 @@ import re
 # https://www.reddit.com/r/ihaveihaveihavereddit/comments/9jg8k7/this_is_so_true/
 # https://v.redd.it/1e0vq1k2j9p71
 url_regex = re.compile(
-    r"(https?\:\/\/((old\.|www\.)?reddit\.com\/r\/[\w]+\/comments\/[\w]+\/\S*|v\.redd\.it\/\S+))",
+    r"(https?\:\/\/((old\.|www\.)?reddit\.com\/r\/[\w]+\/[\w]*\/[\w]+\/\S*|v\.redd\.it\/\S+))",
     re.IGNORECASE,
 )
 
