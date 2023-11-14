@@ -7,8 +7,10 @@ import enum
 
 logger = logging.getLogger("bot")
 
-# discord has a 8MB limit on file uploads
-MAX_VIDEO_SIZE = 8 * 1024 * 1024  # 8MB
+# We won't host videos if they are alrger then 100MB
+MAX_VIDEO_SIZE = 100 * 1024 * 1024
+# We send videos if they are less than 8MB
+MAX_SEND_VIDEO_SIZE = 8 * 1024 * 1024
 MAX_DURATION = 60 * 5  # 5 minutes
 
 
@@ -31,6 +33,7 @@ class DownloadErrorReason(enum.Enum):
 @dataclasses.dataclass
 class SucessDownloadResult:
     path: pathlib.Path
+    size: int
     url: str
 
     @property
@@ -87,7 +90,9 @@ def download_video(reddit_url: str) -> SucessDownloadResult | FailureDownloadRes
             reason=DownloadErrorReason.TOO_LARGE, url=reddit_url
         )
 
-    return SucessDownloadResult(path=out_path, url=reddit_url)
+    return SucessDownloadResult(
+        path=out_path, size=out_path.stat().st_size, url=reddit_url
+    )
 
 
 def download_videos(

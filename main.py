@@ -4,21 +4,20 @@ import os
 import discord_native_reddit_vids.reddit as reddit
 import discord_native_reddit_vids.download as download
 import logging
+import pathlib
 
+intents = discord.Intents.default()
+intents.message_content = True
+
+client = discord.Client(
+    intents=intents,
+)
 logger = logging.getLogger("bot")
 logger.setLevel(logging.INFO)
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s]%(name)s: %(message)s",
-)
-
-dotenv.load_dotenv()
-
-intents = discord.Intents.default()
-intents.message_content = True
-client = discord.Client(
-    intents=intents,
 )
 
 
@@ -44,13 +43,34 @@ async def on_message(message: discord.Message):
     )
 
     for download_result in video_download_results:
-        if download_result.success is False:
+        if isinstance(download_result, download.FailureDownloadResult):
             logger.info(f"Failed to download {download_result.url}")
             logger.info(f"Reason: {download_result.reason}")
+
+            if download_result.reason == download.DownloadErrorReason.NO_MEDIA:
+                continue
+
             await message.reply(
                 f"Failed to download: {download_result.reason}", mention_author=False
             )
             continue
+
+        if download_result.size > download.MAX_SEND_VIDEO_SIZE:
+            # we host the video instead
+            logger.info(f"Hosting {download_result.url}")
+            # move the file
+            download_result.path = download_result.path.rename(
+                pathlib.Path("static", download_result.path.name)
+            )
+
+            url = os.getenv("HOST_URL") + "/" + download_result.path.name
+
+            await message.reply(
+                content=url,
+                mention_author=False,
+            )
+            continue
+
         try:
             logger.info(f"Sending {download_result.url}")
             await message.reply(
@@ -64,5 +84,7 @@ async def on_message(message: discord.Message):
 
 
 if __name__ == "__main__":
+    dotenv.load_dotenv()
+
     logger.info("Starting discord_native_reddit_vids")
     client.run(os.getenv("DISCORD_TOKEN"), log_handler=None)
