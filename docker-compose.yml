@@ -4,5 +4,25 @@ services:
     build: .
     environment:
       - DISCORD_TOKEN
+      - HOST_URL=https://bot.loeffelmeister.de
     volumes:
       - ./tmp:/app/tmp
+  nginx:
+    image: nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./tmp:/app/tmp
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bot.rule=Host(`bot.loeffelmeister.de`)"
+      - "traefik.http.routers.bot.entrypoints=websecure"
+      - "traefik.http.routers.bot.tls.certresolver=myresolver"
+      - "traefik.http.routers.bot.tls=true"
+      - "traefik.http.routers.bot.service=bot"
+      - "traefik.http.services.bot.loadbalancer.server.port=80"
+    networks:
+      - web
+
+networks:
+  web:
+    external: true

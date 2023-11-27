@@ -1,3 +1,4 @@
+from typing import Optional
 import yt_dlp
 import pathlib
 import uuid
@@ -7,9 +8,8 @@ import enum
 
 logger = logging.getLogger("bot")
 
-# discord has a 8MB limit on file uploads
-MAX_VIDEO_SIZE = 8 * 1024 * 1024  # 8MB
-MAX_DURATION = 60 * 5  # 5 minutes
+MAX_VIDEO_SIZE = 300 * 1024 * 1024  # 300MB
+MAX_DURATION = 60 * 10  # 10 minutes
 
 
 class DownloadErrorReason(enum.Enum):
@@ -37,6 +37,12 @@ class SucessDownloadResult:
     def success(self) -> bool:
         return True
 
+    def should_host(self):
+        """Returns true if we host the video our selfs for example if the video is too large for discord"""
+        DISCORD_UPLOAD_LIMIT = 8 * 1024 * 1024  # 8MB
+        
+        return self.path.stat().st_size > DISCORD_UPLOAD_LIMIT
+
 
 @dataclasses.dataclass
 class FailureDownloadResult:
@@ -48,10 +54,15 @@ class FailureDownloadResult:
         return False
 
 
-def download_video(reddit_url: str) -> SucessDownloadResult | FailureDownloadResult:
+def download_video(
+    reddit_url: str, max_duration: Optional[float] = None, max_size: Optional[int] = None
+) -> SucessDownloadResult | FailureDownloadResult:
     """Downloads a video from a reddit post"""
     video_id = uuid.uuid4()
     out_path = pathlib.Path("tmp", f"{video_id}.mp4")
+
+    max_duration = max_duration or MAX_DURATION
+    max_size = max_size or MAX_VIDEO_SIZE
 
     ydl_opts = {
         "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
@@ -59,12 +70,12 @@ def download_video(reddit_url: str) -> SucessDownloadResult | FailureDownloadRes
         "merge_output_format": "mp4",
         "quiet": True,
     }
+
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(reddit_url, download=False)
 
-            # Check if the video is too big
-            if info["duration"] > MAX_DURATION:
+            if info["duration"] > max_duration:
                 return FailureDownloadResult(
                     reason=DownloadErrorReason.TOO_LONG, url=reddit_url
                 )
@@ -80,8 +91,9 @@ def download_video(reddit_url: str) -> SucessDownloadResult | FailureDownloadRes
             else:
                 raise download_error
 
-    # check if the video is too big
-    if out_path.stat().st_size > MAX_VIDEO_SIZE:
+    is_too_large = out_path.stat().st_size > max_size
+
+    if is_too_large:
         out_path.unlink()
         return FailureDownloadResult(
             reason=DownloadErrorReason.TOO_LARGE, url=reddit_url

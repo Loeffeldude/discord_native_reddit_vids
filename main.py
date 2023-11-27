@@ -1,3 +1,4 @@
+from typing import Optional
 import discord
 import dotenv
 import os
@@ -37,30 +38,59 @@ async def on_message(message: discord.Message):
 
     logger.info(f"Downloading {len(urls)} videos from {message.author.name}")
 
+    reply_message: Optional[discord.Message] = await message.reply(
+        "Downloading videos...", mention_author=False
+    )
+
     video_download_results = download.download_videos(urls)
 
     logger.info(
         f"Sending {len([res.success for res in video_download_results])} videos to {message.author.name}"
     )
 
-    for download_result in video_download_results:
-        if download_result.success is False:
-            logger.info(f"Failed to download {download_result.url}")
-            logger.info(f"Reason: {download_result.reason}")
-            await message.reply(
-                f"Failed to download: {download_result.reason}", mention_author=False
-            )
-            continue
-        try:
-            logger.info(f"Sending {download_result.url}")
-            await message.reply(
-                content=download_result.url,
-                file=discord.File(download_result.path),
-                mention_author=False,
-                suppress_embeds=True,
-            )
-        finally:
-            download_result.path.unlink()
+    try:
+        for download_result in video_download_results:
+            if isinstance(download_result, download.FailureDownloadResult):
+                logger.info(f"Failed to download {download_result.url}")
+                logger.info(f"Reason: {download_result.reason}")
+
+                if download_result.reason == download.DownloadErrorReason.NO_MEDIA:
+                    continue
+
+                if reply_message:
+                    await reply_message.delete()
+                    reply_message = None
+
+                await reply_message.edit(
+                    content=f"Failed to download: {download_result.reason}"
+                )
+            else:
+                if reply_message:
+                    await reply_message.delete()
+                    reply_message = None
+
+                if download_result.should_host():
+                    base_dir = download_result.path.parent.parent
+                    move_to = base_dir / "videos" / download_result.path.name
+                    download_result.path.rename(move_to)
+
+                    url = f"{os.getenv('HOST_URL')}/videos/{download_result.path.name}"
+
+                    await message.reply(content=url, mention_author=False)
+                else:
+                    logger.info(f"Sending {download_result.url}")
+                    await message.reply(
+                        content=download_result.url,
+                        file=discord.File(download_result.path),
+                        mention_author=False,
+                        suppress_embeds=True,
+                    )
+
+    finally:
+        for download_result in video_download_results:
+            if isinstance(download_result, download.SucessDownloadResult):
+                if download_result.path.exists():
+                    download_result.path.unlink()
 
 
 if __name__ == "__main__":

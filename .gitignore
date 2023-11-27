@@ -1,5 +1,7 @@
 tmp/**
 !tmp/.gitkeep
+videos/**
+!videos/.gitkeep
 
 .env
 .DS_Store
