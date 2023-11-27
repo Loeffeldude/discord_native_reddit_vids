@@ -7,6 +7,7 @@ services:
       - HOST_URL=https://bot.loeffelmeister.de
     volumes:
       - ./tmp:/app/tmp
+      - ./videos:/app/videos
   nginx:
     image: nginx
     volumes:
