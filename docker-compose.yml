@@ -11,7 +11,7 @@ services:
     image: nginx
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./tmp:/app/tmp
+      - ./videos:/app/videos
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.bot.rule=Host(`bot.loeffelmeister.de`)"
