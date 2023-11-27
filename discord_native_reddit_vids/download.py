@@ -31,6 +31,7 @@ class DownloadErrorReason(enum.Enum):
 @dataclasses.dataclass
 class SucessDownloadResult:
     path: pathlib.Path
+    size: int
     url: str
 
     @property
@@ -99,7 +100,9 @@ def download_video(
             reason=DownloadErrorReason.TOO_LARGE, url=reddit_url
         )
 
-    return SucessDownloadResult(path=out_path, url=reddit_url)
+    return SucessDownloadResult(
+        path=out_path, size=out_path.stat().st_size, url=reddit_url
+    )
 
 
 def download_videos(

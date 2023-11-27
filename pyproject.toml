@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "discord-nativ-reddit-vids"
+name = "discord_native_reddit_vids"
 version = "0.1.0"
 description = ""
 authors = ["Nico Krätschmer <kraetschmerni@gmail.com>"]
