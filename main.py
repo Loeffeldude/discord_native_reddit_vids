@@ -70,9 +70,9 @@ async def on_message(message: discord.Message):
                 if download_result.should_host():
                     base_dir = download_result.path.parent.parent
                     move_to = base_dir / "videos" / download_result.path.name
-                    download_result.path.rename(move_to)
+                    result_path = download_result.path.rename(move_to)
 
-                    url = f"{os.getenv('HOST_URL')}/videos/{download_result.path.name}"
+                    url = f"{os.getenv('HOST_URL')}/videos/{result_path.name}"
 
                     await message.reply(content=url, mention_author=False)
                 else:
