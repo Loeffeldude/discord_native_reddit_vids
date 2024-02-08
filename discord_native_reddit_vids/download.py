@@ -1,115 +1,207 @@
-from typing import Optional
-import yt_dlp
-import pathlib
+from typing import Iterable, Callable
 import uuid
-import logging
+import discord
 import dataclasses
-import enum
+import re
+import yt_dlp
+import discord_native_reddit_vids.settings as settings
+import asyncio
+from hurry.filesize import size
+import logging
 
-logger = logging.getLogger("bot")
-
-MAX_VIDEO_SIZE = 300 * 1024 * 1024  # 300MB
-MAX_DURATION = 60 * 10  # 10 minutes
-
-
-class DownloadErrorReason(enum.Enum):
-    NO_MEDIA = "no media found"
-    TOO_LONG = "too long"
-    TOO_LARGE = "too large"
-
-    def __str__(self):
-        if self == DownloadErrorReason.NO_MEDIA:
-            return "The reddit post does not have any video media"
-        elif self == DownloadErrorReason.TOO_LONG:
-            return "The reddit video is too long"
-        elif self == DownloadErrorReason.TOO_LARGE:
-            return "The reddit video's filesize is too large"
-        else:
-            return "Unknown error"
+logger = logging.getLogger(__name__)
 
 
-@dataclasses.dataclass
-class SucessDownloadResult:
-    path: pathlib.Path
-    size: int
-    url: str
+class DownloadHandler:
+
+    url_regexes: Iterable[re.Pattern[str]]
+    verbose_name: str
+    name: str
 
     @property
-    def success(self) -> bool:
-        return True
+    def _YTD_DEFAULT_OPTS(self):
+        return {
+            "format": f"(bestvideo+bestaudio)[filesize<{size(settings.MAX_UPLOAD_VIDEO_SIZE)}B]/bestvideo+bestaudio",
+            "merge_output_format": "mp4",
+            "noplaylist": True,
+            "quiet": True,
+        }
 
-    def should_host(self):
-        """Returns true if we host the video our selfs for example if the video is too large for discord"""
-        DISCORD_UPLOAD_LIMIT = 8 * 1024 * 1024  # 8MB
-        
-        return self.path.stat().st_size > DISCORD_UPLOAD_LIMIT
+    def _extract_urls(self, pattern, message_str: str):
+        return [match.group(0) for match in re.finditer(pattern, message_str)]
 
-
-@dataclasses.dataclass
-class FailureDownloadResult:
-    reason: DownloadErrorReason
-    url: str
-
-    @property
-    def success(self) -> bool:
-        return False
-
-
-def download_video(
-    reddit_url: str, max_duration: Optional[float] = None, max_size: Optional[int] = None
-) -> SucessDownloadResult | FailureDownloadResult:
-    """Downloads a video from a reddit post"""
-    video_id = uuid.uuid4()
-    out_path = pathlib.Path("tmp", f"{video_id}.mp4")
-
-    max_duration = max_duration or MAX_DURATION
-    max_size = max_size or MAX_VIDEO_SIZE
-
-    ydl_opts = {
-        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-        "outtmpl": out_path.as_posix(),
-        "merge_output_format": "mp4",
-        "quiet": True,
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(reddit_url, download=False)
-
-            if info["duration"] > max_duration:
-                return FailureDownloadResult(
-                    reason=DownloadErrorReason.TOO_LONG, url=reddit_url
-                )
-
-            ydl.download([reddit_url])
-        except yt_dlp.utils.DownloadError as download_error:
-            # This is awful but I don't know how else to do it
-            # I guess its pythonic lol
-            if download_error.msg.lower() in "no media found":
-                return FailureDownloadResult(
-                    url=reddit_url, reason=DownloadErrorReason.NO_MEDIA
-                )
-            else:
-                raise download_error
-
-    is_too_large = out_path.stat().st_size > max_size
-
-    if is_too_large:
-        out_path.unlink()
-        return FailureDownloadResult(
-            reason=DownloadErrorReason.TOO_LARGE, url=reddit_url
+    def extract_urls(self, message_str: str):
+        return list(
+            set(
+                [
+                    url
+                    for re_pattern in self.url_regexes
+                    for url in self._extract_urls(re_pattern, message_str)
+                ]
+            )
         )
 
-    return SucessDownloadResult(
-        path=out_path, size=out_path.stat().st_size, url=reddit_url
-    )
+    async def handle(self, message: discord.Message):
+        urls = self.extract_urls(message.content)
+
+        if not urls:
+            return
+
+        await asyncio.gather(*[self.download_handler(url, message) for url in urls])
+
+    def progress_bar(self, progress: float, length: int = 20):
+        return f"[{'#' * int(progress * length)}{'-' * int((1 - progress) * length)}]"
+
+    async def download_handler(self, url: str, message: discord.Message):
+        try:
+            id = str(uuid.uuid4()).replace("-", "")
+            tmp_path = settings.BASE_DIR / f"tmp/{self.name}/{id}.mp4"
+
+            embed_message: None | discord.Message = None
+            progress = 0
+
+            # here we create our embed that tracks the download progress
+            def get_embed(info: dict, progress: float = 0):
+                embed = discord.Embed(
+                    title=f"Downloading {info['title']} using {self.verbose_name}",
+                    description=f"Progress\n{self.progress_bar(progress)}",
+                    color=discord.Color.blue(),
+                )
+
+                embed.set_thumbnail(
+                    url="https://media.tenor.com/qYSjiwLs2zgAAAAj/fries-spin.gif"
+                )  # url=f"{settings.HOST_URL}/loading.gif")
+
+                return embed
+
+            def progress_hook(info):
+
+                if info["status"] != "downloading":
+                    return
+
+                if not embed_message:
+                    return
+                nonlocal progress
+                progress = info["downloaded_bytes"] / info["total_bytes"]
+
+            ydl_opts = {
+                "outtmpl": tmp_path.as_posix(),
+                **self._YTD_DEFAULT_OPTS,
+                "progress_hooks": [progress_hook],
+            }
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = await self.get_info(url, ydl)
+
+                if info is None:
+                    return
+
+                if not self.should_download(info):
+                    return
+
+                embed_message = await message.reply(
+                    embed=get_embed(info, progress), mention_author=False
+                )
+
+                download_task = asyncio.create_task(self.download(url, ydl))
+
+                # while not download_task.done():
+                #     if progress != 0:
+                #         await embed_message.edit(embed=get_embed(info, progress))
+
+                #     await asyncio.wait([download_task, asyncio.sleep(0.05)])
+
+                await download_task
+
+            should_host = tmp_path.stat().st_size > settings.MAX_UPLOAD_VIDEO_SIZE
+
+            send_embed = discord.Embed(
+                title=f"{info['title']} posted by {message.author.display_name}",
+                color=discord.Color.green(),
+            )
+
+            if should_host:
+                (settings.BASE_DIR / f"public/videos/{self.name}/").mkdir(exist_ok=True)
+
+                tmp_path.rename(
+                    settings.BASE_DIR / f"public/videos/{self.name}/{tmp_path.name}"
+                )
+
+                await embed_message.edit(
+                    content=settings.HOST_URL + f"/videos/{self.name}/{tmp_path.name}",
+                    embed=send_embed,
+                )
+
+            else:
+                await embed_message.edit(
+                    attachments=[discord.File(tmp_path)],
+                    embed=send_embed,
+                )
+                tmp_path.unlink()
+        except Exception as e:
+            if embed_message:
+                await embed_message.edit(
+                    embed=discord.Embed(
+                        title="An error occurred",
+                        description=f"An error occurred while processing the video\n{e}",
+                        color=discord.Color.red(),
+                    )
+                )
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
+
+    def should_download(self, info: dict):
+        return info.get("duration", 0) < settings.MAX_DURATION
+
+    async def get_info(self, url: str, ydl: yt_dlp.YoutubeDL) -> dict | None:
+        loop = asyncio.get_event_loop()
+        try:
+            return await loop.run_in_executor(None, ydl.extract_info, url, False)
+        except yt_dlp.utils.DownloadError as download_error:
+            if "no media found" in download_error.msg.lower():
+                return None
+
+            raise download_error
+
+    async def download(self, url: str, ydl: yt_dlp.YoutubeDL):
+        loop = asyncio.get_event_loop()
+
+        logger.info(f"Downloading {url}")
+
+        await loop.run_in_executor(None, ydl.download, [url])
 
 
-def download_videos(
-    reddit_urls: list[str],
-) -> list[SucessDownloadResult | FailureDownloadResult]:
-    """Downloads videos from a list of reddit urls"""
-    video_paths = []
-    for url in reddit_urls:
-        video_paths.append(download_video(url))
-    return [path for path in video_paths]
+class RedditDownloadHandler(DownloadHandler):
+    verbose_name = ("Reddit Downloader",)
+    name = ("reddit",)
+    url_regexes = [
+        re.compile(
+            r"(https?\:\/\/((old\.|www\.)?reddit\.com\/r\/[\w]+\/[\w]*\/[\w]+\/\S*))",
+        ),
+        re.compile(r"https?\:\/\/v\.redd\.it\/[\w]+"),
+        re.compile(r"https?\:\/\/www\.reddit\.com\/r\/[\w]+/s/[\w]+"),
+    ]
+
+
+class TwitterDownloadHandler(DownloadHandler):
+    verbose_name = ("Twitter Downloader",)
+    name = ("twitter",)
+    url_regexes = [
+        re.compile(r"https?\:\/\/twitter\.com\/[\w]+/status/[\w]+"),
+    ]
+
+
+class YT18PlusDownloadHandler(DownloadHandler):
+
+    url_regexes = [
+        re.compile(r"https?\:\/\/www\.youtube\.com\/watch\?v=[\w]+"),
+        re.compile(r"https?\:\/\/youtu\.be/[\w]+"),
+    ]
+    verbose_name = "Youtube Downloader"
+    name = "youtube"
+
+    def should_download(self, info: dict):
+        is_over_age_limit = info.get("age_limit", 0) >= 18
+        print(is_over_age_limit)
+        return super().should_download(info) and is_over_age_limit
