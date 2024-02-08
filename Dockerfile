@@ -23,11 +23,7 @@ RUN poetry config virtualenvs.create false \
 
 COPY . /app
 
-# Run the image as a non-root user
 
-RUN adduser --disabled-password --gecos '' appuser
-
-USER appuser
 
 # Run the app
 
