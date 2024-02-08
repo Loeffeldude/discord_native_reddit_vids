@@ -8,7 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 discord-py = "^2.3.2"
-yt-dlp = "^2023.10.13"
+yt-dlp = "^2023.12.30"
 python-dotenv = "^1.0.0"
 hurry-filesize = "^0.9"
 
