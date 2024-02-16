@@ -82,6 +82,11 @@ class DownloadHandler:
                 if not embed_message:
                     return
                 nonlocal progress
+                if "total_bytes" not in info:
+                    return
+                if "downloaded_bytes" not in info:
+                    return
+
                 progress = info["downloaded_bytes"] / info["total_bytes"]
 
             ydl_opts = {
