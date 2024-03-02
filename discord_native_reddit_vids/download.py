@@ -8,6 +8,7 @@ import discord_native_reddit_vids.settings as settings
 import asyncio
 from hurry.filesize import size
 import logging
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -128,9 +129,17 @@ class DownloadHandler:
             if should_host:
                 (settings.BASE_DIR / f"public/videos/{self.name}/").mkdir(exist_ok=True)
 
-                tmp_path.rename(
+                # copy isntead of move because this dir is mounted (invalid cross-device link)
+                target_path = (
                     settings.BASE_DIR / f"public/videos/{self.name}/{tmp_path.name}"
                 )
+
+                # copy the file to the public folder
+                shutil.copy(tmp_path, target_path)
+
+                tmp_path.unlink()
+
+                tmp_path = target_path
 
                 await embed_message.edit(
                     content=settings.HOST_URL + f"/videos/{self.name}/{tmp_path.name}",
