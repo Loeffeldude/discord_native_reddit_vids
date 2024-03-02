@@ -135,14 +135,13 @@ class DownloadHandler:
                 )
 
                 # copy the file to the public folder
-                shutil.copy(tmp_path, target_path)
+                shutil.copyfile(str(tmp_path), str(target_path))
 
                 tmp_path.unlink()
 
-                tmp_path = target_path
-
                 await embed_message.edit(
-                    content=settings.HOST_URL + f"/videos/{self.name}/{tmp_path.name}",
+                    content=settings.HOST_URL
+                    + f"/videos/{self.name}/{target_path.name}",
                     embed=send_embed,
                 )
 
