@@ -178,8 +178,8 @@ class DownloadHandler:
 
 
 class RedditDownloadHandler(DownloadHandler):
-    verbose_name = ("Reddit Downloader",)
-    name = ("reddit",)
+    verbose_name = "Reddit Downloader"
+    name = "reddit"
     url_regexes = [
         re.compile(
             r"(https?\:\/\/((old\.|www\.)?reddit\.com\/r\/[\w]+\/[\w]*\/[\w]+\/\S*))",
@@ -190,8 +190,8 @@ class RedditDownloadHandler(DownloadHandler):
 
 
 class TwitterDownloadHandler(DownloadHandler):
-    verbose_name = ("Twitter Downloader",)
-    name = ("twitter",)
+    verbose_name = "Twitter Downloader"
+    name = "twitter"
     url_regexes = [
         re.compile(r"https?\:\/\/twitter\.com\/[\w]+/status/[\w]+"),
     ]
