@@ -136,12 +136,13 @@ class DownloadHandler:
 
                 # copy the file to the public folder
                 shutil.copy(str(tmp_path), str(target_path))
+                url = settings.HOST_URL + f"/videos/{self.name}/{target_path.name}"
 
                 await embed_message.edit(
-                    content=settings.HOST_URL
-                    + f"/videos/{self.name}/{target_path.name}",
+                    content="",
                     embed=send_embed,
                 )
+                await embed_message.reply(url, mention_author=False)
 
             else:
                 await embed_message.edit(
