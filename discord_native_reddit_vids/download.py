@@ -45,6 +45,8 @@ class DownloadHandler:
     async def handle(self, message: discord.Message):
         urls = self.extract_urls(message.content)
 
+        logger.debug(f"{self.verbose_name} Found {len(urls)} urls for ")
+
         if not urls:
             return
 
@@ -54,7 +56,7 @@ class DownloadHandler:
         return f"[{'#' * int(progress * length)}{'-' * int((1 - progress) * length)}]"
 
     async def download_handler(self, url: str, message: discord.Message):
-
+        logger.info(f"Downloading {url} using {self.verbose_name}")
         try:
             id = str(uuid.uuid4()).replace("-", "")
             tmp_path = settings.BASE_DIR / f"tmp/{self.name}/{id}.mp4"
@@ -62,11 +64,7 @@ class DownloadHandler:
             embed_message: None | discord.Message = None
             progress = 0
 
-            cookie_stream = (
-                settings.COOKIE_FILE_PATH.open("w")
-                if settings.COOKIE_FILE_PATH.exists()
-                else None
-            )
+            logger.debug("Opening cookie stream")
 
             # here we create our embed that tracks the download progress
             def get_embed(info: dict, progress: float = 0):
@@ -101,12 +99,15 @@ class DownloadHandler:
                 "outtmpl": tmp_path.as_posix(),
                 **self._YTD_DEFAULT_OPTS,
                 "progress_hooks": [progress_hook],
-                "cookiefile": cookie_stream,
             }
 
+            if settings.COOKIE_FILE_PATH.exists():
+                ydl_opts["cookiefile"] = settings.COOKIE_FILE_PATH.as_posix()
+
+            logger.debug("Starting yt-dlp")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = await self.get_info(url, ydl)
-
+                logger.debug(info)
                 if info is None:
                     return
 
@@ -167,9 +168,8 @@ class DownloadHandler:
                         color=discord.Color.red(),
                     )
                 )
+            logger.exception(e)
         finally:
-            cookie_stream.close() if cookie_stream else None
-
             if tmp_path.exists():
                 tmp_path.unlink()
 

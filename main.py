@@ -32,6 +32,8 @@ async def on_message(message: discord.Message):
     if message.author.bot:
         return
 
+    print(f"Message from {message.author}: {message.content}")
+
     await asyncio.gather(*[h.handle(message) for h in handler])
 
 
