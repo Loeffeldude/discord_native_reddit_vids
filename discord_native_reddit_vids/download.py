@@ -54,12 +54,19 @@ class DownloadHandler:
         return f"[{'#' * int(progress * length)}{'-' * int((1 - progress) * length)}]"
 
     async def download_handler(self, url: str, message: discord.Message):
+
         try:
             id = str(uuid.uuid4()).replace("-", "")
             tmp_path = settings.BASE_DIR / f"tmp/{self.name}/{id}.mp4"
 
             embed_message: None | discord.Message = None
             progress = 0
+
+            cookie_stream = (
+                settings.COOKIE_FILE_PATH.open("w")
+                if settings.COOKIE_FILE_PATH.exists()
+                else None
+            )
 
             # here we create our embed that tracks the download progress
             def get_embed(info: dict, progress: float = 0):
@@ -94,6 +101,7 @@ class DownloadHandler:
                 "outtmpl": tmp_path.as_posix(),
                 **self._YTD_DEFAULT_OPTS,
                 "progress_hooks": [progress_hook],
+                "cookiefile": cookie_stream,
             }
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -160,6 +168,8 @@ class DownloadHandler:
                     )
                 )
         finally:
+            cookie_stream.close() if cookie_stream else None
+
             if tmp_path.exists():
                 tmp_path.unlink()
 

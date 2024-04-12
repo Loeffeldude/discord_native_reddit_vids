@@ -23,3 +23,5 @@ MAX_UPLOAD_VIDEO_SIZE = 8 * 1024 * 1024
 MAX_DURATION = 60 * 15
 
 HOST_URL = os.getenv("HOST_URL", "http://localhost:8000")
+
+COOKIE_FILE_PATH = BASE_DIR / "cookies.txt"

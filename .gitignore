@@ -12,3 +12,5 @@ public/videos/**
 __pycache__
 
 dist/**
+
+cookies.txt
