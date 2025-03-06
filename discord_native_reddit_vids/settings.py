@@ -25,3 +25,6 @@ MAX_DURATION = 60 * 15
 HOST_URL = os.getenv("HOST_URL", "http://localhost:8000")
 
 COOKIE_FILE_PATH = BASE_DIR / "cookies.txt"
+
+INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
+INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")

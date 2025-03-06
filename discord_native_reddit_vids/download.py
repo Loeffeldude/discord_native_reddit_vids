@@ -10,6 +10,7 @@ from hurry.filesize import size
 import logging
 import shutil
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -242,3 +243,11 @@ class InstagramDownloadHandler(DownloadHandler):
     def should_download(self, info: dict):
         # Add any specific conditions for Instagram downloads here
         return super().should_download(info)
+
+    @property
+    def _YTD_DEFAULT_OPTS(self):
+        return {
+            **super()._YTD_DEFAULT_OPTS,
+            "username": settings.INSTAGRAM_USERNAME,
+            "password": settings.INSTAGRAM_PASSWORD,
+        }

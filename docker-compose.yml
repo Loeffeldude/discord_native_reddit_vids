@@ -5,6 +5,8 @@ services:
     environment:
       - DISCORD_TOKEN
       - HOST_URL=https://bot.loeffelmeister.de
+      - INSTAGRAM_USERNAME
+      - INSTAGRAM_PASSWORD
     volumes:
       - ./tmp:/app/tmp
       - ./public:/app/public
