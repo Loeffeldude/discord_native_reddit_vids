@@ -24,6 +24,7 @@ handler: list[download.DownloadHandler] = [
     download.RedditDownloadHandler(),
     download.TwitterDownloadHandler(),
     download.YT18PlusDownloadHandler(),
+    download.InstagramDownloadHandler(),
 ]
 
 

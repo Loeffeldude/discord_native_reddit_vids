@@ -227,3 +227,18 @@ class YT18PlusDownloadHandler(DownloadHandler):
         is_over_age_limit = info.get("age_limit", 0) >= 18
         print(is_over_age_limit)
         return super().should_download(info) and is_over_age_limit
+
+
+class InstagramDownloadHandler(DownloadHandler):
+    verbose_name = "Instagram Downloader"
+    name = "instagram"
+    url_regexes = [
+        re.compile(r"https?:\/\/(www\.)?instagram\.com\/p\/[\w-]+\/?"),
+        re.compile(r"https?:\/\/(www\.)?instagram\.com\/reel\/[\w-]+\/?"),
+        re.compile(r"https?:\/\/(www\.)?instagram\.com\/tv\/[\w-]+\/?"),
+        re.compile(r"https?:\/\/(www\.)?instagram\.com\/stories\/[\w\.]+\/[\d]+\/?"),
+    ]
+
+    def should_download(self, info: dict):
+        # Add any specific conditions for Instagram downloads here
+        return super().should_download(info)
